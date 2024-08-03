@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_cached_pdfview/flutter_cached_pdfview.dart';
+import 'package:video_player/video_player.dart';
 
 Future<void> main() async {
   await dotenv.load(fileName: ".env");
@@ -213,46 +214,100 @@ class _TypeMotorPageState extends State<TypeMotorPage> {
   }
 }
 
-class SpecificationPage extends StatelessWidget {
+class SpecificationPage extends StatefulWidget {
   final Map<String, dynamic> typeMotor;
 
   const SpecificationPage({super.key, required this.typeMotor});
 
   @override
+  _SpecificationPageState createState() => _SpecificationPageState();
+}
+
+class _SpecificationPageState extends State<SpecificationPage> {
+  VideoPlayerController? _controller;
+  Future<void>? _initializeVideoPlayerFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    print(
+        '${dotenv.env['BASE_URL']!}/uploads/type_motor/${widget.typeMotor['video']}');
+    final videoUrl =
+        '${dotenv.env['BASE_URL']!}/uploads/type_motor/${widget.typeMotor['video']}';
+    _controller = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+    _initializeVideoPlayerFuture = _controller!.initialize();
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(typeMotor['type_motor']),
+        title: Text(widget.typeMotor['type_motor']),
       ),
       body: ListView(
         children: [
+          _controller != null
+              ? FutureBuilder(
+                  future: _initializeVideoPlayerFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.done) {
+                      return AspectRatio(
+                        aspectRatio: _controller!.value.aspectRatio,
+                        child: VideoPlayer(_controller!),
+                      );
+                    } else {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                  },
+                )
+              : const SizedBox.shrink(),
           _buildMenuItem(
             context,
             'Informasi Umum',
-            typeMotor['informasi_umum'],
+            widget.typeMotor['informasi_umum'],
           ),
           _buildMenuItem(
             context,
             'Spesifikasi Teknis',
-            typeMotor['spesifikasi_teknis'],
+            widget.typeMotor['spesifikasi_teknis'],
           ),
           _buildMenuItem(
             context,
             'Pemeliharaan',
-            typeMotor['pemeliharaan'],
+            widget.typeMotor['pemeliharaan'],
           ),
           _buildMenuItem(
             context,
             'Pemecahan Masalah',
-            typeMotor['pemecahan_masalah'],
+            widget.typeMotor['pemecahan_masalah'],
           ),
           _buildMenuItem(
             context,
             'Sistem Kelistrikan',
-            typeMotor['sistem_kelistrikan'],
+            widget.typeMotor['sistem_kelistrikan'],
           ),
         ],
       ),
+      floatingActionButton: _controller != null
+          ? FloatingActionButton(
+              onPressed: () {
+                setState(() {
+                  _controller!.value.isPlaying
+                      ? _controller!.pause()
+                      : _controller!.play();
+                });
+              },
+              child: Icon(
+                _controller!.value.isPlaying ? Icons.pause : Icons.play_arrow,
+              ),
+            )
+          : null,
     );
   }
 
